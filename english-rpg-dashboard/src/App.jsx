@@ -1,302 +1,108 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { Trophy, Flame, Brain, Mic, Rocket, CheckCircle2 } from 'lucide-react'
+import React, { useEffect, useState, useCallback } from 'react'
+import Login from './components/Login'
+import Header from './components/Header'
+import StatsGrid from './components/StatsGrid'
+import Achievements from './components/Achievements'
+import LessonTracker from './components/LessonTracker'
+import WeeklyReview from './components/WeeklyReview'
+import { fetchLessons, fetchReviews } from './api'
 import './index.css'
 
-const TOTAL_DAYS = 60
+const EMPTY_STATS = { totalXP: 0, level: 1, xpInLevel: 0, streak: 0, completedLessons: 0, overdueCount: 0, totalActualMin: 0 }
 
-const achievementList = [
-  {
-    id: 'first',
-    title: 'First Step',
-    description: 'Завершить первый урок',
-    icon: Trophy,
-    condition: (stats) => stats.completedLessons >= 1,
-  },
-  {
-    id: 'week',
-    title: '7-Day Streak',
-    description: '7 дней подряд без пропусков',
-    icon: Flame,
-    condition: (stats) => stats.currentStreak >= 7,
-  },
-  {
-    id: 'vocab',
-    title: '500 Words',
-    description: 'Выучить 500 слов',
-    icon: Brain,
-    condition: (stats) => stats.totalWords >= 500,
-  },
-  {
-    id: 'speaker',
-    title: 'Speaker Mode',
-    description: '25 часов speaking practice',
-    icon: Mic,
-    condition: (stats) => stats.totalSpeaking >= 25,
-  },
-  {
-    id: 'b1',
-    title: 'B1 Ready',
-    description: 'Завершить 60 уроков',
-    icon: Rocket,
-    condition: (stats) => stats.completedLessons >= 60,
-  },
-]
-
-const generateLessons = () => {
-  return Array.from({ length: TOTAL_DAYS }, (_, i) => ({
-    id: i + 1,
-    day: i + 1,
-    title: `Урок ${i + 1}`,
-    completed: false,
-    words: 20,
-    speaking: 1,
-    notes: '',
-  }))
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t)
 }
 
 export default function App() {
-  const [lessons, setLessons] = useState(generateLessons())
+  const [username, setUsername] = useState(() => localStorage.getItem('username') || '')
+  const [lessons, setLessons] = useState([])
+  const [stats, setStats] = useState(EMPTY_STATS)
+  const [reviews, setReviews] = useState([])
+  const [tab, setTab] = useState('lessons')
+  const [loading, setLoading] = useState(false)
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('theme') || 'dark'
+    applyTheme(saved)
+    return saved
+  })
 
-  useEffect(() => {
-    const saved = localStorage.getItem('english-dashboard-progress')
-    if (saved) {
-      setLessons(JSON.parse(saved))
+  const isLoggedIn = Boolean(localStorage.getItem('token') && username)
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark'
+      localStorage.setItem('theme', next)
+      applyTheme(next)
+      return next
+    })
+  }, [])
+
+  const loadData = useCallback(async () => {
+    try {
+      const [ld, rd] = await Promise.all([fetchLessons(), fetchReviews()])
+      setLessons(ld.lessons)
+      setStats(ld.stats)
+      setReviews(rd.reviews)
+    } catch {
+      // token invalid — api.js will reload
     }
   }, [])
 
   useEffect(() => {
-    localStorage.setItem('english-dashboard-progress', JSON.stringify(lessons))
-  }, [lessons])
+    if (!isLoggedIn) return
+    setLoading(true)
+    loadData().finally(() => setLoading(false))
+  }, [isLoggedIn, loadData])
 
-  const stats = useMemo(() => {
-    const completedLessons = lessons.filter((l) => l.completed).length
+  useEffect(() => {
+    const handler = () => loadData()
+    window.addEventListener('lesson-updated', handler)
+    return () => window.removeEventListener('lesson-updated', handler)
+  }, [loadData])
 
-    const totalWords = lessons
-      .filter((l) => l.completed)
-      .reduce((acc, l) => acc + Number(l.words || 0), 0)
+  if (!isLoggedIn) return <Login onLogin={user => setUsername(user)} />
 
-    const totalSpeaking = lessons
-      .filter((l) => l.completed)
-      .reduce((acc, l) => acc + Number(l.speaking || 0), 0)
-
-    let currentStreak = 0
-
-    for (const lesson of lessons) {
-      if (lesson.completed) {
-        currentStreak++
-      } else {
-        break
-      }
-    }
-
-    const xp = completedLessons * 100 + totalWords * 2 + totalSpeaking * 25
-    const level = Math.floor(xp / 500) + 1
-
-    return {
-      completedLessons,
-      totalWords,
-      totalSpeaking,
-      currentStreak,
-      xp,
-      level,
-      progressPercent: Math.round((completedLessons / TOTAL_DAYS) * 100),
-    }
-  }, [lessons])
-
-  const achievements = achievementList.map((a) => ({
-    ...a,
-    unlocked: a.condition(stats),
-  }))
-
-  const toggleLesson = (id) => {
-    setLessons((prev) =>
-      prev.map((lesson) =>
-        lesson.id === id
-          ? { ...lesson, completed: !lesson.completed }
-          : lesson
-      )
-    )
-  }
-
-  const updateNote = (id, value) => {
-    setLessons((prev) =>
-      prev.map((lesson) =>
-        lesson.id === id
-          ? { ...lesson, notes: value }
-          : lesson
-      )
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <span className="loading-icon">⚔</span>
+        <p>Loading your quest…</p>
+      </div>
     )
   }
 
   return (
     <div className="app">
-      <div className="container">
-        <div className="header">
-          <div>
-            <h1>English RPG System</h1>
-            <p>
-              Interactive English learning dashboard with XP, streaks,
-              achievements and daily speaking practice.
-            </p>
-          </div>
+      <Header
+        username={username}
+        stats={stats}
+        onLogout={() => { setUsername(''); setLessons([]); setStats(EMPTY_STATS); setReviews([]) }}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
 
-          <div className="level-card">
-            <span>Current Level</span>
-            <strong>LVL {stats.level}</strong>
-            <small>{stats.xp} XP earned</small>
-          </div>
-        </div>
+      <main className="main">
+        <StatsGrid stats={stats} />
 
-        <div className="progress-card">
-          <div className="progress-top">
-            <div>
-              <span>Global Progress</span>
-              <strong>{stats.completedLessons} / {TOTAL_DAYS} lessons</strong>
-            </div>
-
-            <div className="percent">{stats.progressPercent}%</div>
-          </div>
-
-          <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{ width: `${stats.progressPercent}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="stats-grid">
-          <StatCard
-            title="Current Streak"
-            value={stats.currentStreak}
-            subtitle="days in a row"
-            icon={<Flame />}
-          />
-
-          <StatCard
-            title="Vocabulary"
-            value={stats.totalWords}
-            subtitle="words learned"
-            icon={<Brain />}
-          />
-
-          <StatCard
-            title="Speaking"
-            value={`${stats.totalSpeaking}h`}
-            subtitle="conversation practice"
-            icon={<Mic />}
-          />
-
-          <StatCard
-            title="Completed"
-            value={stats.completedLessons}
-            subtitle="lessons done"
-            icon={<CheckCircle2 />}
-          />
-        </div>
-
-        <div className="card">
-          <div className="section-header">
-            <h2>Achievements</h2>
-            <span>
-              {achievements.filter((a) => a.unlocked).length} / {achievements.length} unlocked
-            </span>
-          </div>
-
-          <div className="achievement-grid">
-            {achievements.map((achievement) => {
-              const Icon = achievement.icon
-
-              return (
-                <div
-                  key={achievement.id}
-                  className={`achievement ${achievement.unlocked ? 'unlocked' : ''}`}
-                >
-                  <div className="achievement-top">
-                    <Icon />
-                    {achievement.unlocked && <span className="badge">UNLOCKED</span>}
-                  </div>
-
-                  <h3>{achievement.title}</h3>
-                  <p>{achievement.description}</p>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="section-header">
-            <h2>Daily Lesson Tracker</h2>
-
+        <nav className="tabs">
+          {['lessons', 'achievements', 'review'].map(t => (
             <button
-              className="reset-btn"
-              onClick={() => {
-                localStorage.removeItem('english-dashboard-progress')
-                setLessons(generateLessons())
-              }}
+              key={t}
+              className={`tab-btn ${tab === t ? 'active' : ''}`}
+              onClick={() => setTab(t)}
             >
-              Reset Progress
+              {t === 'lessons' && 'Daily Tracker'}
+              {t === 'achievements' && 'Achievements'}
+              {t === 'review' && 'Weekly Review'}
             </button>
-          </div>
+          ))}
+        </nav>
 
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Done</th>
-                  <th>Day</th>
-                  <th>Lesson</th>
-                  <th>Vocabulary</th>
-                  <th>Speaking</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {lessons.map((lesson) => (
-                  <tr key={lesson.id} className={lesson.completed ? 'completed-row' : ''}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={lesson.completed}
-                        onChange={() => toggleLesson(lesson.id)}
-                      />
-                    </td>
-
-                    <td className="green">Day {lesson.day}</td>
-                    <td>{lesson.title}</td>
-                    <td>{lesson.words} words</td>
-                    <td>{lesson.speaking}h</td>
-
-                    <td>
-                      <input
-                        value={lesson.notes}
-                        onChange={(e) => updateNote(lesson.id, e.target.value)}
-                        placeholder="Что изучил сегодня..."
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StatCard({ title, value, subtitle, icon }) {
-  return (
-    <div className="stat-card">
-      <div className="stat-top">
-        <span>{title}</span>
-        <div className="icon">{icon}</div>
-      </div>
-
-      <strong>{value}</strong>
-      <small>{subtitle}</small>
+        {tab === 'lessons' && <LessonTracker lessons={lessons} />}
+        {tab === 'achievements' && <Achievements stats={stats} lessons={lessons} />}
+        {tab === 'review' && <WeeklyReview lessons={lessons} reviews={reviews} onUpdate={loadData} />}
+      </main>
     </div>
   )
 }
