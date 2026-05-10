@@ -1,12 +1,19 @@
 const db = require('./db.cjs');
 const bcrypt = require('bcryptjs');
 
-// Default user: admin / english2026
-const existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
-if (!existingUser) {
-  const hash = bcrypt.hashSync('english2026', 10);
-  db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run('admin', hash);
-  console.log('[seed] Created user: admin / english2026');
+const USERS = [
+  { username: 'admin',                          password: 'english2026' },
+  { username: 'admaks@live.com',                password: 'nikMax1997'  },
+  { username: 'christinochka.smith@mail.ru',    password: 'nikFrog1996' },
+];
+
+for (const u of USERS) {
+  const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(u.username);
+  if (!exists) {
+    const hash = bcrypt.hashSync(u.password, 10);
+    db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(u.username, hash);
+    console.log(`[seed] Created user: ${u.username}`);
+  }
 }
 
 const LESSONS = [
