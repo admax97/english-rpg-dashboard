@@ -27,7 +27,8 @@ const WEEK_MEDIA = {
 }
 
 function videoForLesson(id) {
-  return PLAYLIST_VIDEOS[(id - 1) % PLAYLIST_VIDEOS.length]
+  const idx = id - 1
+  return idx < PLAYLIST_VIDEOS.length ? PLAYLIST_VIDEOS[idx] : null
 }
 
 function lessonXP(lesson) {
@@ -157,15 +158,17 @@ function LessonRow({ lesson }) {
         <span className={`row-xp ${xp < 0 ? 'xp-neg' : xp > 0 ? 'xp-pos' : ''}`}>
           {xp >= 0 ? '+' : ''}{xp} XP
         </span>
-        <a
-          href={videoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="row-video-link"
-          title="Видео урока на YouTube"
-        >
-          ▶ Видео
-        </a>
+        {videoId && (
+          <a
+            href={videoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="row-video-link"
+            title="Видео урока на YouTube"
+          >
+            ▶ Видео
+          </a>
+        )}
         <button
           className={`complete-btn${lesson.is_completed ? ' complete-btn--reopen' : ''}`}
           onClick={handleComplete}
