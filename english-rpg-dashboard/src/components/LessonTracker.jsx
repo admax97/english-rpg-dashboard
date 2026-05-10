@@ -143,7 +143,9 @@ function LessonRow({ lesson }) {
   return (
     <div className={`lesson-row ${cls}`}>
       <div className="row-meta">
-        <span className="row-plan-date" title="По плану">{lesson.date.slice(5).replace('-', '/')}</span>
+        <span className="row-plan-date" title={lesson.studied_date ? 'Дата занятия' : 'По плану'}>
+          {(lesson.studied_date || lesson.date).slice(5).replace('-', '/')}
+        </span>
         <span className="row-day">{lesson.day}</span>
         <span className="row-block">{lesson.block}</span>
         <span className="row-pct">{pct}%</span>
