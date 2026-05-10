@@ -6,7 +6,7 @@ const db = require('./db.cjs');
 require('./seed.cjs');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'english-rpg-secret-2026';
 
 const BLOCKS = ['vocabulary', 'listening', 'speaking'];
