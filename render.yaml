@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: english-rpg-dashboard
     buildCommand: npm install
-    startCommand: npm run server
+    startCommand: node --experimental-sqlite server/index.cjs
     envVars:
       - key: NODE_VERSION
         value: 22.12.0
