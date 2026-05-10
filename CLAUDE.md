@@ -4,6 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
+An interactive English learning dashboard with RPG mechanics (XP, levels, streaks, achievements). The course is 8 weeks × 7 days = 56 lessons (April 20 – June 14, 2026). The user earns XP by marking skill blocks as Done/Partial and loses 30 XP per overdue lesson with zero activity.
 
 ## Stack
 
