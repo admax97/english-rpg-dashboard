@@ -7,12 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "node --experimental-sqlite server/index.cjs",
-    "dev:server": "node --experimental-sqlite --watch server/index.cjs",
+    "server": "node server/index.cjs",
+    "dev:server": "node --watch server/index.cjs",
     "dev:all": "concurrently -k \"npm run dev\" \"npm run dev:server\""
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "pg": "^8.13.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",

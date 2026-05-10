@@ -4,9 +4,11 @@ services:
     runtime: node
     rootDir: english-rpg-dashboard
     buildCommand: npm install
-    startCommand: node --experimental-sqlite server/index.cjs
+    startCommand: node server/index.cjs
     envVars:
       - key: NODE_VERSION
         value: 22.12.0
       - key: JWT_SECRET
         generateValue: true
+      - key: DATABASE_URL
+        sync: false

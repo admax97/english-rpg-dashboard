@@ -1,4 +1,4 @@
-const db = require('./db.cjs');
+const { pool } = require('./db.cjs');
 const bcrypt = require('bcryptjs');
 
 const USERS = [
@@ -6,15 +6,6 @@ const USERS = [
   { username: 'admax97',    password: 'nikmax1997'  },
   { username: 'christin96', password: 'imFrog1996'  },
 ];
-
-for (const u of USERS) {
-  const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(u.username);
-  if (!exists) {
-    const hash = bcrypt.hashSync(u.password, 10);
-    db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(u.username, hash);
-    console.log(`[seed] Created user: ${u.username}`);
-  }
-}
 
 const LESSONS = [
   { id:1,  date:'2026-05-10', week:1, day:'Mon', focus:'Разогрев и возврат автоматизма', grammar:'Present Simple, Present Continuous', theme:'introducing yourself, daily routine, work and responsibilities', block:'Vocabulary + Listening', task:'Выучи 5-7 фраз, послушай 1 короткое видео, перескажи вслух', planned_min:35 },
@@ -75,18 +66,6 @@ const LESSONS = [
   { id:56, date:'2026-07-04', week:8, day:'Sun', focus:'Интеграция и выход в практику', grammar:'Integrated review', theme:'explain your work, goals, problems and solutions', block:'Light Review', task:'Повтори карточки, 5 минут речи, без перегруза', planned_min:20 },
 ];
 
-const lessonCount = db.prepare('SELECT COUNT(*) as cnt FROM lessons').get();
-if (lessonCount.cnt === 0) {
-  const insert = db.prepare(`
-    INSERT INTO lessons (id, date, week, day, focus, grammar, theme, block, task, planned_min)
-    VALUES (@id, @date, @week, @day, @focus, @grammar, @theme, @block, @task, @planned_min)
-  `);
-  db.exec('BEGIN');
-  LESSONS.forEach(r => insert.run(r));
-  db.exec('COMMIT');
-  console.log('[seed] Inserted 56 lessons');
-}
-
 const REVIEWS = [
   { week:1, focus:'Разогрев и возврат автоматизма',       grammar:'Present Simple, Present Continuous' },
   { week:2, focus:'Прошлое и опыт',                       grammar:'Past Simple, Present Perfect' },
@@ -98,13 +77,48 @@ const REVIEWS = [
   { week:8, focus:'Интеграция и выход в практику',        grammar:'Integrated review' },
 ];
 
-const reviewCount = db.prepare('SELECT COUNT(*) as cnt FROM weekly_reviews').get();
-if (reviewCount.cnt === 0) {
-  const insertReview = db.prepare(`
-    INSERT INTO weekly_reviews (week, focus, grammar) VALUES (@week, @focus, @grammar)
-  `);
-  db.exec('BEGIN');
-  REVIEWS.forEach(r => insertReview.run(r));
-  db.exec('COMMIT');
-  console.log('[seed] Inserted 8 weekly reviews');
+async function runSeed() {
+  for (const u of USERS) {
+    const { rows } = await pool.query('SELECT id FROM users WHERE username = $1', [u.username]);
+    if (!rows.length) {
+      const hash = bcrypt.hashSync(u.password, 10);
+      await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', [u.username, hash]);
+      console.log(`[seed] Created user: ${u.username}`);
+    }
+  }
+
+  const { rows: lc } = await pool.query('SELECT COUNT(*) AS cnt FROM lessons');
+  if (parseInt(lc[0].cnt) === 0) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const r of LESSONS) {
+        await client.query(
+          `INSERT INTO lessons (id, date, week, day, focus, grammar, theme, block, task, planned_min)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [r.id, r.date, r.week, r.day, r.focus, r.grammar, r.theme, r.block, r.task, r.planned_min]
+        );
+      }
+      await client.query('COMMIT');
+      console.log('[seed] Inserted 56 lessons');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  const { rows: rc } = await pool.query('SELECT COUNT(*) AS cnt FROM weekly_reviews');
+  if (parseInt(rc[0].cnt) === 0) {
+    for (const r of REVIEWS) {
+      await pool.query(
+        'INSERT INTO weekly_reviews (week, focus, grammar) VALUES ($1,$2,$3)',
+        [r.week, r.focus, r.grammar]
+      );
+    }
+    console.log('[seed] Inserted 8 weekly reviews');
+  }
 }
+
+module.exports = { runSeed };

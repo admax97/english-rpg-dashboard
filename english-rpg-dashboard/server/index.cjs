@@ -3,8 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const db = require('./db.cjs');
-require('./seed.cjs');
+const { pool, initDb } = require('./db.cjs');
+const { runSeed } = require('./seed.cjs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -36,7 +36,6 @@ function lessonXP(lesson, today) {
     if (lesson[b] === 'Partial') return acc + 10;
     return acc;
   }, 0);
-  // Only penalise if no studied_date set and no activity and schedule is overdue
   const allNone = BLOCKS.every(b => !lesson[b] || lesson[b] === 'None');
   if (allNone && !lesson.studied_date && lesson.date < today) xp -= 30;
   return xp;
@@ -44,10 +43,7 @@ function lessonXP(lesson, today) {
 
 function computeStats(lessons) {
   const today = new Date().toISOString().slice(0, 10);
-  let rawXP = 0;
-  let completedLessons = 0;
-  let overdueCount = 0;
-  let totalActualMin = 0;
+  let rawXP = 0, completedLessons = 0, overdueCount = 0, totalActualMin = 0;
 
   for (const l of lessons) {
     rawXP += lessonXP(l, today);
@@ -58,7 +54,6 @@ function computeStats(lessons) {
     }, 0);
     if (score / 3 >= 0.8) completedLessons++;
     const allNone = BLOCKS.every(b => !l[b] || l[b] === 'None');
-    // Overdue: no studied date, no activity, scheduled date is past
     if (allNone && !l.studied_date && l.date < today) overdueCount++;
     totalActualMin += l.actual_min || 0;
   }
@@ -67,7 +62,6 @@ function computeStats(lessons) {
   const level = Math.floor(totalXP / 300) + 1;
   const xpInLevel = totalXP % 300;
 
-  // Streak: group by actual study date (studied_date if set, else scheduled date for active lessons)
   const dateSet = new Set();
   for (const l of lessons) {
     if (!hasActivity(l)) continue;
@@ -75,8 +69,7 @@ function computeStats(lessons) {
     if (d <= today) dateSet.add(d);
   }
   const dates = Array.from(dateSet).sort().reverse();
-  let streak = 0;
-  let prev = today;
+  let streak = 0, prev = today;
   for (const d of dates) {
     const diff = (new Date(prev) - new Date(d)) / 86400000;
     if (diff <= 1) { streak++; prev = d; }
@@ -87,59 +80,95 @@ function computeStats(lessons) {
 }
 
 // POST /api/login
-app.post('/api/login', (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password) return res.status(400).json({ error: 'username and password required' });
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    return res.status(401).json({ error: 'Invalid credentials' });
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: 'username and password required' });
+    const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    const user = rows[0];
+    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    await pool.query('UPDATE users SET login_count = login_count + 1 WHERE id = $1', [user.id]);
+    const { rows: updated } = await pool.query('SELECT login_count FROM users WHERE id = $1', [user.id]);
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, username: user.username, loginCount: updated[0].login_count });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
-  db.prepare('UPDATE users SET login_count = login_count + 1 WHERE id = ?').run(user.id);
-  const { login_count } = db.prepare('SELECT login_count FROM users WHERE id = ?').get(user.id);
-  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, username: user.username, loginCount: login_count });
 });
 
 // GET /api/lessons
-app.get('/api/lessons', auth, (req, res) => {
-  const lessons = db.prepare('SELECT * FROM lessons ORDER BY id').all();
-  res.json({ lessons, stats: computeStats(lessons) });
+app.get('/api/lessons', auth, async (req, res) => {
+  try {
+    const { rows: lessons } = await pool.query('SELECT * FROM lessons ORDER BY id');
+    res.json({ lessons, stats: computeStats(lessons) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // PATCH /api/lessons/:id
-app.patch('/api/lessons/:id', auth, (req, res) => {
-  const id = Number(req.params.id);
-  const allowed = ['actual_min', 'studied_date', ...BLOCKS, 'notes', 'is_completed'];
-  const updates = {};
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) updates[key] = req.body[key];
+app.patch('/api/lessons/:id', auth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const allowed = ['actual_min', 'studied_date', ...BLOCKS, 'notes', 'is_completed'];
+    const updates = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nothing to update' });
+    const keys = Object.keys(updates);
+    const sets = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const values = [...keys.map(k => updates[k]), id];
+    await pool.query(`UPDATE lessons SET ${sets} WHERE id = $${keys.length + 1}`, values);
+    const { rows } = await pool.query('SELECT * FROM lessons WHERE id = $1', [id]);
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
-  if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nothing to update' });
-  const sets = Object.keys(updates).map(k => `${k} = @${k}`).join(', ');
-  db.prepare(`UPDATE lessons SET ${sets} WHERE id = @id`).run({ ...updates, id });
-  const lesson = db.prepare('SELECT * FROM lessons WHERE id = ?').get(id);
-  res.json(lesson);
 });
 
 // GET /api/reviews
-app.get('/api/reviews', auth, (req, res) => {
-  const reviews = db.prepare('SELECT * FROM weekly_reviews ORDER BY week').all();
-  res.json({ reviews });
+app.get('/api/reviews', auth, async (req, res) => {
+  try {
+    const { rows: reviews } = await pool.query('SELECT * FROM weekly_reviews ORDER BY week');
+    res.json({ reviews });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // PATCH /api/reviews/:week
-app.patch('/api/reviews/:week', auth, (req, res) => {
-  const week = Number(req.params.week);
-  const allowed = ['what_improved', 'what_was_hard', 'adjustment'];
-  const updates = {};
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) updates[key] = req.body[key];
+app.patch('/api/reviews/:week', auth, async (req, res) => {
+  try {
+    const week = Number(req.params.week);
+    const allowed = ['what_improved', 'what_was_hard', 'adjustment'];
+    const updates = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nothing to update' });
+    const keys = Object.keys(updates);
+    const sets = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const values = [...keys.map(k => updates[k]), week];
+    await pool.query(`UPDATE weekly_reviews SET ${sets} WHERE week = $${keys.length + 1}`, values);
+    const { rows } = await pool.query('SELECT * FROM weekly_reviews WHERE week = $1', [week]);
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
-  if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nothing to update' });
-  const sets = Object.keys(updates).map(k => `${k} = @${k}`).join(', ');
-  db.prepare(`UPDATE weekly_reviews SET ${sets} WHERE week = @week`).run({ ...updates, week });
-  const review = db.prepare('SELECT * FROM weekly_reviews WHERE week = ?').get(week);
-  res.json(review);
 });
 
-app.listen(PORT, () => console.log(`[server] API running on http://localhost:${PORT}`));
+async function start() {
+  await initDb();
+  await runSeed();
+  app.listen(PORT, () => console.log(`[server] API running on http://localhost:${PORT}`));
+}
+
+start().catch(err => { console.error(err); process.exit(1); });
