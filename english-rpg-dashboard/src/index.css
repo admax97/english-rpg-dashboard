@@ -71,6 +71,7 @@ body {
 }
 .login-form input:focus { border-color: var(--accent); }
 .login-error { background: #3b1212; border: 1px solid var(--red); border-radius: 8px; color: var(--red); padding: .6rem .85rem; margin-bottom: 1rem; font-size: .85rem; }
+.login-warn  { background: #2a2208; border: 1px solid var(--amber); border-radius: 8px; color: var(--amber); padding: .6rem .85rem; margin-bottom: 1rem; font-size: .82rem; }
 .login-btn {
   width: 100%; background: var(--accent); border: none; border-radius: 8px;
   color: #fff; font-size: 1rem; font-weight: 600; padding: .75rem;

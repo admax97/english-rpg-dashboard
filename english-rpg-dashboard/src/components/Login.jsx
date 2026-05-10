@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { login } from '../api'
 
 export default function Login({ onLogin }) {
@@ -6,6 +6,13 @@ export default function Login({ onLogin }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [slowWarning, setSlowWarning] = useState(false)
+
+  useEffect(() => {
+    if (!loading) { setSlowWarning(false); return }
+    const t = setTimeout(() => setSlowWarning(true), 8000)
+    return () => clearTimeout(t)
+  }, [loading])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -56,8 +63,14 @@ export default function Login({ onLogin }) {
 
           {error && <div className="login-error">{error}</div>}
 
+          {slowWarning && (
+            <div className="login-warn">
+              Сервер просыпается после паузы — обычно занимает до 60 сек…
+            </div>
+          )}
+
           <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? 'Signing in…' : 'Enter the Game'}
+            {loading ? 'Подключение…' : 'Enter the Game'}
           </button>
         </form>
       </div>
