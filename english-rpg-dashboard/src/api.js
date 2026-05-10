@@ -1,4 +1,5 @@
-const BASE = '/api';
+// In production set VITE_API_URL=https://your-backend.onrender.com in Netlify env vars
+const BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 function getToken() {
   return localStorage.getItem('token');

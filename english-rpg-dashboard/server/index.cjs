@@ -11,7 +11,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'english-rpg-secret-2026';
 
 const BLOCKS = ['vocabulary', 'listening', 'speaking'];
 
-app.use(cors());
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 function auth(req, res, next) {
