@@ -8,7 +8,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL
+    password_hash TEXT NOT NULL,
+    login_count INTEGER DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS lessons (
@@ -30,7 +31,8 @@ db.exec(`
     review TEXT DEFAULT 'None',
     voice TEXT DEFAULT 'None',
     studied_date TEXT DEFAULT NULL,
-    notes TEXT DEFAULT ''
+    notes TEXT DEFAULT '',
+    is_completed INTEGER DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS weekly_reviews (
@@ -42,5 +44,9 @@ db.exec(`
     adjustment TEXT DEFAULT ''
   );
 `);
+
+const migrate = (sql) => { try { db.exec(sql); } catch {} };
+migrate('ALTER TABLE lessons ADD COLUMN is_completed INTEGER DEFAULT 0');
+migrate('ALTER TABLE users ADD COLUMN login_count INTEGER DEFAULT 0');
 
 module.exports = db;

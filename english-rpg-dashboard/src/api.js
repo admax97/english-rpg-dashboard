@@ -38,6 +38,7 @@ export async function login(username, password) {
   const data = await res.json();
   localStorage.setItem('token', data.token);
   localStorage.setItem('username', data.username);
+  localStorage.setItem('loginCount', String(data.loginCount || 1));
   return data.username;
 }
 

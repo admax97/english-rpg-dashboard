@@ -66,7 +66,9 @@ export default function App() {
   if (loading) {
     return (
       <div className="loading-screen">
-        <span className="loading-icon">⚔</span>
+        <div className="frog-preloader-wrap">
+          <span className="frog-preloader">🐸</span>
+        </div>
         <p>Loading your quest…</p>
       </div>
     )
@@ -100,7 +102,13 @@ export default function App() {
         </nav>
 
         {tab === 'lessons' && <LessonTracker lessons={lessons} />}
-        {tab === 'achievements' && <Achievements stats={stats} lessons={lessons} />}
+        {tab === 'achievements' && (
+          <Achievements
+            stats={stats}
+            lessons={lessons}
+            loginCount={parseInt(localStorage.getItem('loginCount') || '1', 10)}
+          />
+        )}
         {tab === 'review' && <WeeklyReview lessons={lessons} reviews={reviews} onUpdate={loadData} />}
       </main>
     </div>

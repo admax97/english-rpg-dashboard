@@ -140,8 +140,13 @@ function LessonRow({ lesson }) {
     }, 800)
   }, [lesson.id])
 
+  const handleComplete = useCallback(async () => {
+    await updateLesson(lesson.id, { is_completed: lesson.is_completed ? 0 : 1 })
+    dispatch()
+  }, [lesson.id, lesson.is_completed])
+
   return (
-    <div className={`lesson-row ${cls}`}>
+    <div className={`lesson-row ${cls}${lesson.is_completed ? ' row-closed' : ''}`}>
       <div className="row-meta">
         <span className="row-plan-date" title={lesson.studied_date ? 'Дата занятия' : 'По плану'}>
           {(lesson.studied_date || lesson.date).slice(5).replace('-', '/')}
@@ -161,56 +166,80 @@ function LessonRow({ lesson }) {
         >
           ▶ Видео
         </a>
+        <button
+          className={`complete-btn${lesson.is_completed ? ' complete-btn--reopen' : ''}`}
+          onClick={handleComplete}
+          title={lesson.is_completed ? 'Открыть для редактирования' : 'Закрыть урок как выполненный'}
+        >
+          {lesson.is_completed ? '✎ Edit' : '✓ Done'}
+        </button>
       </div>
 
-      <div className="row-task">{lesson.task}</div>
-
-      <div className="row-controls">
-        <div className="block-statuses">
-          {BLOCKS.map(b => (
-            <label key={b} className="block-select">
-              <span>{BLOCK_LABELS[b]}</span>
-              <select
-                value={lesson[b] || 'None'}
-                onChange={e => handleBlock(b, e.target.value)}
-                className={`status-${(lesson[b] || 'None').toLowerCase()}`}
-              >
-                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </label>
+      {lesson.is_completed ? (
+        <div className="row-summary">
+          {BLOCKS.filter(b => lesson[b] && lesson[b] !== 'None').map(b => (
+            <span key={b} className={`summary-tag status-tag-${(lesson[b] || 'none').toLowerCase()}`}>
+              {BLOCK_LABELS[b]}: {lesson[b]}
+            </span>
           ))}
+          {lesson.actual_min > 0 && (
+            <span className="summary-tag summary-min">⏱ {lesson.actual_min} мин</span>
+          )}
+          {lesson.notes && (
+            <span className="summary-tag summary-note" title={lesson.notes}>📝 {lesson.notes}</span>
+          )}
         </div>
+      ) : (
+        <>
+          <div className="row-task">{lesson.task}</div>
+          <div className="row-controls">
+            <div className="block-statuses">
+              {BLOCKS.map(b => (
+                <label key={b} className="block-select">
+                  <span>{BLOCK_LABELS[b]}</span>
+                  <select
+                    value={lesson[b] || 'None'}
+                    onChange={e => handleBlock(b, e.target.value)}
+                    className={`status-${(lesson[b] || 'None').toLowerCase()}`}
+                  >
+                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </label>
+              ))}
+            </div>
 
-        <label className="studied-date-label">
-          <span>Дата занятия</span>
-          <input
-            type="date"
-            defaultValue={lesson.studied_date || ''}
-            onChange={e => handleStudiedDate(e.target.value)}
-            className="studied-date-input"
-          />
-        </label>
+            <label className="studied-date-label">
+              <span>Дата занятия</span>
+              <input
+                type="date"
+                defaultValue={lesson.studied_date || ''}
+                onChange={e => handleStudiedDate(e.target.value)}
+                className="studied-date-input"
+              />
+            </label>
 
-        <label className="min-label">
-          <span>Мин</span>
-          <input
-            type="number"
-            min="0"
-            max="180"
-            defaultValue={lesson.actual_min || 0}
-            onChange={e => handleMin(e.target.value)}
-            className="min-input"
-          />
-        </label>
+            <label className="min-label">
+              <span>Мин</span>
+              <input
+                type="number"
+                min="0"
+                max="180"
+                defaultValue={lesson.actual_min || 0}
+                onChange={e => handleMin(e.target.value)}
+                className="min-input"
+              />
+            </label>
 
-        <input
-          type="text"
-          defaultValue={lesson.notes || ''}
-          onChange={e => handleNotes(e.target.value)}
-          placeholder="Заметки…"
-          className="notes-input"
-        />
-      </div>
+            <input
+              type="text"
+              defaultValue={lesson.notes || ''}
+              onChange={e => handleNotes(e.target.value)}
+              placeholder="Заметки…"
+              className="notes-input"
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }

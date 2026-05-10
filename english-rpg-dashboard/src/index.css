@@ -243,3 +243,82 @@ body {
   outline: none; font-family: inherit; line-height: 1.5;
 }
 .review-fields textarea:focus { border-color: var(--accent); }
+
+/* ─── Frog preloader ─────────────────────────────────────────── */
+.frog-preloader-wrap {
+  width: 280px;
+  height: 72px;
+  position: relative;
+  overflow: hidden;
+  margin: 0 auto 1rem;
+}
+.frog-preloader {
+  position: absolute;
+  font-size: 3rem;
+  left: 0;
+  bottom: 0;
+  animation: frog-hop 2.2s ease-in-out infinite;
+}
+@keyframes frog-hop {
+  0%   { transform: translate(0, 0);          opacity: 1; }
+  12%  { transform: translate(36px, -34px);   }
+  24%  { transform: translate(72px, 0);       }
+  36%  { transform: translate(108px, -34px);  }
+  48%  { transform: translate(144px, 0);      }
+  60%  { transform: translate(180px, -34px);  }
+  72%  { transform: translate(216px, 0);      opacity: 1; }
+  82%  { transform: translate(216px, 0);      opacity: 0; }
+  83%  { transform: translate(0, 0);          opacity: 0; }
+  100% { transform: translate(0, 0);          opacity: 1; }
+}
+
+/* ─── Header frog evolution ──────────────────────────────────── */
+.header-frogs { font-size: .75rem; letter-spacing: -1px; margin-left: 2px; }
+.stage-label  { font-weight: 700; }
+.xp-next      { font-size: .72rem; color: var(--muted); margin-left: 6px; }
+
+/* ─── Completed / closed lesson row ─────────────────────────── */
+.row-closed {
+  border-left: 3px solid var(--green) !important;
+  background: rgba(34, 197, 94, 0.04) !important;
+}
+.complete-btn {
+  margin-left: auto;
+  padding: 3px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--green);
+  background: transparent;
+  color: var(--green);
+  font-size: .72rem;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.complete-btn--reopen {
+  border-color: var(--muted);
+  color: var(--muted);
+}
+.complete-btn:hover { opacity: .75; }
+
+.row-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 5px 0 2px;
+  font-size: .72rem;
+}
+.summary-tag {
+  padding: 2px 9px;
+  border-radius: 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.summary-min  { color: var(--muted); }
+.summary-note { color: var(--muted); font-style: italic; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-tag-done    { border-color: var(--green);  color: var(--green); }
+.status-tag-partial { border-color: var(--amber);  color: var(--amber); }
+.status-tag-skipped { border-color: var(--muted);  color: var(--muted); }
+
+/* ─── Frog achievements ──────────────────────────────────────── */
+.ach-frog-icon { font-size: 2.4rem; margin-bottom: .4rem; }

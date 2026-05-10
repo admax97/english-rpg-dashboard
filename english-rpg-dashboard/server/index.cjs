@@ -94,8 +94,10 @@ app.post('/api/login', (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
+  db.prepare('UPDATE users SET login_count = login_count + 1 WHERE id = ?').run(user.id);
+  const { login_count } = db.prepare('SELECT login_count FROM users WHERE id = ?').get(user.id);
   const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, username: user.username });
+  res.json({ token, username: user.username, loginCount: login_count });
 });
 
 // GET /api/lessons
@@ -107,7 +109,7 @@ app.get('/api/lessons', auth, (req, res) => {
 // PATCH /api/lessons/:id
 app.patch('/api/lessons/:id', auth, (req, res) => {
   const id = Number(req.params.id);
-  const allowed = ['actual_min', 'studied_date', ...BLOCKS, 'notes'];
+  const allowed = ['actual_min', 'studied_date', ...BLOCKS, 'notes', 'is_completed'];
   const updates = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
