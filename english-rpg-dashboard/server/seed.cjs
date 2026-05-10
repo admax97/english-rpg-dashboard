@@ -2,9 +2,9 @@ const db = require('./db.cjs');
 const bcrypt = require('bcryptjs');
 
 const USERS = [
-  { username: 'admin',                          password: 'english2026' },
-  { username: 'admaks@live.com',                password: 'nikMax1997'  },
-  { username: 'christinochka.smith@mail.ru',    password: 'nikFrog1996' },
+  { username: 'admin',      password: 'english2026' },
+  { username: 'admax97',    password: 'nikmax1997'  },
+  { username: 'christin96', password: 'imFrog1996'  },
 ];
 
 for (const u of USERS) {
